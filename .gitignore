@@ -1,15 +1,19 @@
-# Models (large, machine-local — download/copy separately)
+# Folder structure is tracked via .gitkeep; contents are machine-local.
+# (Put .gguf files in models/, engine build in engine/, runtime output in logs/)
 *.gguf
-models/
-engine/
+models/*
+!models/.gitkeep
+engine/*
+!engine/.gitkeep
+logs/*
+!logs/.gitkeep
 *.zip
 
 # Local env (per-machine settings — copy .env.example to .env)
 .env
 .port
 
-# Runtime artifacts
-logs/
+# Runtime artifacts (logs/ structure tracked via .gitkeep)
 *.log
 *.err.log
 
