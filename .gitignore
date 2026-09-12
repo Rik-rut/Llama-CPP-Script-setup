@@ -1,0 +1,23 @@
+# Models (large, machine-local — download/copy separately)
+*.gguf
+models/
+engine/
+*.zip
+
+# Local env (per-machine settings — copy .env.example to .env)
+.env
+.port
+
+# Runtime artifacts
+logs/
+*.log
+*.err.log
+
+# Backups
+*.bak-*
+llama.cpp.bak-*/
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
