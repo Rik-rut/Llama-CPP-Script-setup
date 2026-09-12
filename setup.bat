@@ -6,6 +6,7 @@ set "DIR=%~dp0"
 set "PORT=18123"
 set "HOST=127.0.0.1"
 set "ENGINE_VERSION=b10740"
+set "ENGINE_URL="
 set "ENGINE_DIR=engine\llama.cpp-b10740"
 set "MODEL_DIR=models"
 if exist "%DIR%.env" (
@@ -15,6 +16,7 @@ if exist "%DIR%.env" (
             if /i "!k!"=="PORT" set "PORT=!v!"
             if /i "!k!"=="HOST" set "HOST=!v!"
             if /i "!k!"=="ENGINE_VERSION" set "ENGINE_VERSION=!v!"
+            if /i "!k!"=="ENGINE_URL" set "ENGINE_URL=!v!"
             if /i "!k!"=="ENGINE_DIR" set "ENGINE_DIR=!v!"
             if /i "!k!"=="MODEL_DIR" set "MODEL_DIR=!v!"
         )
@@ -55,7 +57,8 @@ if exist "!ENG!\llama-server.exe" (
     echo Engine OK: !ENG!
 ) else (
     echo Downloading llama.cpp !ENGINE_VERSION! CUDA 12.4 win-x64...
-    set "URL=https://github.com/ggerganov/llama.cpp/releases/download/!ENGINE_VERSION!/llama-!ENGINE_VERSION!-bin-win-cuda-12.4-x64.zip"
+    set "URL=https://github.com/ggml-org/llama.cpp/releases/download/!ENGINE_VERSION!/llama-!ENGINE_VERSION!-bin-win-cuda-12.4-x64.zip"
+    if defined ENGINE_URL set "URL=!ENGINE_URL!"
     mkdir "!ENG!" 2>nul
     curl -fL "!URL!" -o "%DIR%engine\llama.zip"
     if errorlevel 1 (

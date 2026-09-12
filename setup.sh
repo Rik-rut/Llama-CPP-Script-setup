@@ -3,7 +3,7 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PORT=18123; HOST=127.0.0.1; ENGINE_VERSION=b10740
+PORT=18123; HOST=127.0.0.1; ENGINE_VERSION=b10740; ENGINE_URL=""
 ENGINE_DIR="engine/llama.cpp-b10740"; MODEL_DIR="models"
 [[ -f "$DIR/.env" ]] && { set -a; source "$DIR/.env"; set +a; }
 
@@ -24,18 +24,54 @@ if [[ -f "$ENG/llama-server" || -f "$ENG/llama-server.exe" ]]; then
   echo "Engine OK: $ENG"
 else
   echo "Downloading llama.cpp $ENGINE_VERSION..."
+  BASE="https://github.com/ggml-org/llama.cpp/releases/download/${ENGINE_VERSION}"
   OS="$(uname -s)"; ARCH="$(uname -m)"
-  case "$OS" in
-    Linux)  ZIP="llama-${ENGINE_VERSION}-bin-ubuntu-x64.zip" ;;
-    Darwin) ZIP="llama-${ENGINE_VERSION}-bin-macos-arm64.zip" ;;
-    MINGW*|MSYS*|CYGWIN*) ZIP="llama-${ENGINE_VERSION}-bin-win-cuda-12.4-x64.zip" ;;
-    *) echo "Unsupported OS: $OS. Download manually into $ENG"; exit 1 ;;
-  esac
-  URL="https://github.com/ggerganov/llama.cpp/releases/download/${ENGINE_VERSION}/${ZIP}"
+  # NOTE: release assets are .tar.gz on Linux/macOS, .zip on Windows.
+  # There is no Linux CUDA build — NVIDIA GPUs use the Vulkan build.
+  if [[ -n "${ENGINE_URL:-}" ]]; then
+    URLS=("$ENGINE_URL")
+  else
+    case "$OS" in
+      Linux)
+        if command -v nvidia-smi >/dev/null 2>&1; then
+          URLS=("$BASE/llama-${ENGINE_VERSION}-bin-ubuntu-vulkan-x64.tar.gz"
+                "$BASE/llama-${ENGINE_VERSION}-bin-ubuntu-x64.tar.gz")
+          echo "NVIDIA GPU detected -> Vulkan build (fallback: CPU build)."
+        elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+          URLS=("$BASE/llama-${ENGINE_VERSION}-bin-ubuntu-arm64.tar.gz")
+        else
+          URLS=("$BASE/llama-${ENGINE_VERSION}-bin-ubuntu-x64.tar.gz")
+        fi
+        ;;
+      Darwin)
+        if [[ "$ARCH" == "arm64" ]]; then
+          URLS=("$BASE/llama-${ENGINE_VERSION}-bin-macos-arm64.tar.gz")
+        else
+          URLS=("$BASE/llama-${ENGINE_VERSION}-bin-macos-x64.tar.gz")
+        fi
+        ;;
+      MINGW*|MSYS*|CYGWIN*)
+        URLS=("$BASE/llama-${ENGINE_VERSION}-bin-win-cuda-12.4-x64.zip")
+        ;;
+      *) echo "Unsupported OS: $OS. Set ENGINE_URL in .env or download manually into $ENG"; exit 1 ;;
+    esac
+  fi
   mkdir -p "$ENG"
-  curl -fL "$URL" -o "$DIR/engine/llama.zip" || { echo "ERROR: download failed: $URL"; exit 1; }
-  unzip -o "$DIR/engine/llama.zip" -d "$ENG"
-  rm "$DIR/engine/llama.zip"
+  OK=""
+  for URL in "${URLS[@]}"; do
+    echo "Trying: $URL"
+    if curl -fL "$URL" -o "$DIR/engine/llama-pkg"; then OK="$URL"; break; fi
+    echo "Not found, trying next..."
+  done
+  [[ -z "$OK" ]] && { echo "ERROR: all downloads failed. Set ENGINE_URL in .env or download manually into $ENG"; exit 1; }
+  if [[ "$OK" == *.zip ]]; then
+    unzip -o "$DIR/engine/llama-pkg" -d "$ENG"
+  else
+    tar xzf "$DIR/engine/llama-pkg" -C "$ENG"
+  fi
+  rm "$DIR/engine/llama-pkg"
+  [[ -f "$ENG/llama-server" || -f "$ENG/llama-server.exe" ]] || { echo "ERROR: llama-server missing after extract. Check archive layout in $ENG"; exit 1; }
+  echo "Engine installed from: $OK"
 fi
 chmod +x "$ENG"/llama-server 2>/dev/null || true
 "$ENG"/llama-server --version 2>/dev/null || "$ENG"/llama-server.exe --version 2>/dev/null || true
