@@ -70,6 +70,18 @@ else
     tar xzf "$DIR/engine/llama-pkg" -C "$ENG"
   fi
   rm "$DIR/engine/llama-pkg"
+  # Normalize nested archive layout: Linux .tar.gz wraps everything in llama-bXXXX/
+  if [[ ! -f "$ENG/llama-server" && ! -f "$ENG/llama-server.exe" ]]; then
+    FOUND="$(find "$ENG" -mindepth 2 -maxdepth 3 -type f \( -name llama-server -o -name llama-server.exe \) -print -quit)"
+    if [[ -n "$FOUND" ]]; then
+      SRC="$(dirname "$FOUND")"
+      echo "Flattening nested archive layout: $SRC -> $ENG"
+      for f in "$SRC"/* "$SRC"/.[!.]* "$SRC"/..?*; do
+        [[ -e "$f" || -L "$f" ]] && mv "$f" "$ENG"/
+      done
+      rmdir "$SRC" 2>/dev/null || true
+    fi
+  fi
   [[ -f "$ENG/llama-server" || -f "$ENG/llama-server.exe" ]] || { echo "ERROR: llama-server missing after extract. Check archive layout in $ENG"; exit 1; }
   echo "Engine installed from: $OK"
 fi
